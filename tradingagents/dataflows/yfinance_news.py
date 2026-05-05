@@ -1,6 +1,8 @@
 """yfinance-based news data fetching functions."""
 
 import yfinance as yf
+
+from tradingagents.dataflows.utils import normalize_symbol_for_yfinance
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
@@ -65,11 +67,12 @@ def get_news_yfinance(
         Formatted string containing news articles
     """
     try:
-        stock = yf.Ticker(ticker)
+        sym = normalize_symbol_for_yfinance(ticker)
+        stock = yf.Ticker(sym)
         news = yf_retry(lambda: stock.get_news(count=20))
 
         if not news:
-            return f"No news found for {ticker}"
+            return f"No news found for {sym}"
 
         # Parse date range for filtering
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
@@ -96,9 +99,9 @@ def get_news_yfinance(
             filtered_count += 1
 
         if filtered_count == 0:
-            return f"No news found for {ticker} between {start_date} and {end_date}"
+            return f"No news found for {sym} between {start_date} and {end_date}"
 
-        return f"## {ticker} News, from {start_date} to {end_date}:\n\n{news_str}"
+        return f"## {sym} News, from {start_date} to {end_date}:\n\n{news_str}"
 
     except Exception as e:
         return f"Error fetching news for {ticker}: {str(e)}"

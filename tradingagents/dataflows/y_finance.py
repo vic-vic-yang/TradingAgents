@@ -5,6 +5,7 @@ import pandas as pd
 import yfinance as yf
 import os
 from .stockstats_utils import StockstatsUtils, _clean_dataframe, yf_retry, load_ohlcv, filter_financials_by_date
+from .utils import normalize_symbol_for_yfinance
 
 def get_YFin_data_online(
     symbol: Annotated[str, "ticker symbol of the company"],
@@ -15,8 +16,8 @@ def get_YFin_data_online(
     datetime.strptime(start_date, "%Y-%m-%d")
     datetime.strptime(end_date, "%Y-%m-%d")
 
-    # Create ticker object
-    ticker = yf.Ticker(symbol.upper())
+    sym = normalize_symbol_for_yfinance(symbol)
+    ticker = yf.Ticker(sym)
 
     # Fetch historical data for the specified date range
     data = yf_retry(lambda: ticker.history(start=start_date, end=end_date))
@@ -24,7 +25,7 @@ def get_YFin_data_online(
     # Check if data is empty
     if data.empty:
         return (
-            f"No data found for symbol '{symbol}' between {start_date} and {end_date}"
+            f"No data found for symbol '{sym}' between {start_date} and {end_date}"
         )
 
     # Remove timezone info from index for cleaner output
@@ -41,7 +42,7 @@ def get_YFin_data_online(
     csv_string = data.to_csv()
 
     # Add header information
-    header = f"# Stock data for {symbol.upper()} from {start_date} to {end_date}\n"
+    header = f"# Stock data for {sym} from {start_date} to {end_date}\n"
     header += f"# Total records: {len(data)}\n"
     header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
@@ -251,11 +252,12 @@ def get_fundamentals(
 ):
     """Get company fundamentals overview from yfinance."""
     try:
-        ticker_obj = yf.Ticker(ticker.upper())
+        sym = normalize_symbol_for_yfinance(ticker)
+        ticker_obj = yf.Ticker(sym)
         info = yf_retry(lambda: ticker_obj.info)
 
         if not info:
-            return f"No fundamentals data found for symbol '{ticker}'"
+            return f"No fundamentals data found for symbol '{sym}'"
 
         fields = [
             ("Name", info.get("longName")),
@@ -293,7 +295,7 @@ def get_fundamentals(
             if value is not None:
                 lines.append(f"{label}: {value}")
 
-        header = f"# Company Fundamentals for {ticker.upper()}\n"
+        header = f"# Company Fundamentals for {sym}\n"
         header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
         return header + "\n".join(lines)
@@ -309,7 +311,8 @@ def get_balance_sheet(
 ):
     """Get balance sheet data from yfinance."""
     try:
-        ticker_obj = yf.Ticker(ticker.upper())
+        sym = normalize_symbol_for_yfinance(ticker)
+        ticker_obj = yf.Ticker(sym)
 
         if freq.lower() == "quarterly":
             data = yf_retry(lambda: ticker_obj.quarterly_balance_sheet)
@@ -319,13 +322,13 @@ def get_balance_sheet(
         data = filter_financials_by_date(data, curr_date)
 
         if data.empty:
-            return f"No balance sheet data found for symbol '{ticker}'"
+            return f"No balance sheet data found for symbol '{sym}'"
             
         # Convert to CSV string for consistency with other functions
         csv_string = data.to_csv()
         
         # Add header information
-        header = f"# Balance Sheet data for {ticker.upper()} ({freq})\n"
+        header = f"# Balance Sheet data for {sym} ({freq})\n"
         header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
         
         return header + csv_string
@@ -341,7 +344,8 @@ def get_cashflow(
 ):
     """Get cash flow data from yfinance."""
     try:
-        ticker_obj = yf.Ticker(ticker.upper())
+        sym = normalize_symbol_for_yfinance(ticker)
+        ticker_obj = yf.Ticker(sym)
 
         if freq.lower() == "quarterly":
             data = yf_retry(lambda: ticker_obj.quarterly_cashflow)
@@ -351,13 +355,13 @@ def get_cashflow(
         data = filter_financials_by_date(data, curr_date)
 
         if data.empty:
-            return f"No cash flow data found for symbol '{ticker}'"
+            return f"No cash flow data found for symbol '{sym}'"
             
         # Convert to CSV string for consistency with other functions
         csv_string = data.to_csv()
         
         # Add header information
-        header = f"# Cash Flow data for {ticker.upper()} ({freq})\n"
+        header = f"# Cash Flow data for {sym} ({freq})\n"
         header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
         
         return header + csv_string
@@ -373,7 +377,8 @@ def get_income_statement(
 ):
     """Get income statement data from yfinance."""
     try:
-        ticker_obj = yf.Ticker(ticker.upper())
+        sym = normalize_symbol_for_yfinance(ticker)
+        ticker_obj = yf.Ticker(sym)
 
         if freq.lower() == "quarterly":
             data = yf_retry(lambda: ticker_obj.quarterly_income_stmt)
@@ -383,13 +388,13 @@ def get_income_statement(
         data = filter_financials_by_date(data, curr_date)
 
         if data.empty:
-            return f"No income statement data found for symbol '{ticker}'"
+            return f"No income statement data found for symbol '{sym}'"
             
         # Convert to CSV string for consistency with other functions
         csv_string = data.to_csv()
         
         # Add header information
-        header = f"# Income Statement data for {ticker.upper()} ({freq})\n"
+        header = f"# Income Statement data for {sym} ({freq})\n"
         header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
         
         return header + csv_string
@@ -403,17 +408,18 @@ def get_insider_transactions(
 ):
     """Get insider transactions data from yfinance."""
     try:
-        ticker_obj = yf.Ticker(ticker.upper())
+        sym = normalize_symbol_for_yfinance(ticker)
+        ticker_obj = yf.Ticker(sym)
         data = yf_retry(lambda: ticker_obj.insider_transactions)
         
         if data is None or data.empty:
-            return f"No insider transactions data found for symbol '{ticker}'"
+            return f"No insider transactions data found for symbol '{sym}'"
             
         # Convert to CSV string for consistency with other functions
         csv_string = data.to_csv()
         
         # Add header information
-        header = f"# Insider Transactions data for {ticker.upper()}\n"
+        header = f"# Insider Transactions data for {sym}\n"
         header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
         
         return header + csv_string

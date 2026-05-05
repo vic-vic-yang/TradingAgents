@@ -18,7 +18,7 @@ from tradingagents.llm_clients import create_llm_client
 from tradingagents.agents import *
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.agents.utils.memory import TradingMemoryLog
-from tradingagents.dataflows.utils import safe_ticker_component
+from tradingagents.dataflows.utils import normalize_symbol_for_yfinance, safe_ticker_component
 from tradingagents.agents.utils.agent_states import (
     AgentState,
     InvestDebateState,
@@ -202,7 +202,8 @@ class TradingAgentsGraph:
             end = start + timedelta(days=holding_days + 7)  # buffer for weekends/holidays
             end_str = end.strftime("%Y-%m-%d")
 
-            stock = yf.Ticker(ticker).history(start=trade_date, end=end_str)
+            ysym = normalize_symbol_for_yfinance(ticker)
+            stock = yf.Ticker(ysym).history(start=trade_date, end=end_str)
             spy = yf.Ticker("SPY").history(start=trade_date, end=end_str)
 
             if len(stock) < 2 or len(spy) < 2:
@@ -315,14 +316,19 @@ class TradingAgentsGraph:
             args.setdefault("config", {}).setdefault("configurable", {})["thread_id"] = tid
 
         if self.debug:
-            trace = []
+            # stream_mode is "values": each chunk is a full state snapshot. Always keep the
+            # last one — do not derive final_state only from chunks with non-empty messages,
+            # or trace[-1] may lag the true terminal state and break logging / report export.
+            final_state = None
             for chunk in self.graph.stream(init_agent_state, **args):
-                if len(chunk["messages"]) == 0:
-                    pass
-                else:
-                    chunk["messages"][-1].pretty_print()
-                    trace.append(chunk)
-            final_state = trace[-1]
+                final_state = chunk
+                msgs = chunk.get("messages") or []
+                if len(msgs) > 0:
+                    last = msgs[-1]
+                    if hasattr(last, "pretty_print"):
+                        last.pretty_print()
+            if final_state is None:
+                raise RuntimeError("Graph stream produced no state")
         else:
             final_state = self.graph.invoke(init_agent_state, **args)
 

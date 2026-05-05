@@ -13,6 +13,32 @@ SavePathType = Annotated[str, "File path to save data. If None, data is not save
 _TICKER_PATH_RE = re.compile(r"^[A-Za-z0-9._\-\^]+$")
 
 
+def normalize_symbol_for_yfinance(symbol: str) -> str:
+    """Map bare Chinese A-share codes to Yahoo Finance tickers.
+
+    Yahoo does not resolve 6-digit codes alone (e.g. ``601800``); they must be
+    qualified with ``.SS`` (Shanghai), ``.SZ`` (Shenzhen), or ``.BJ`` (Beijing).
+    US and other symbols are passed through (uppercased) unchanged aside from
+    existing ``.SS`` / ``.SZ`` / ``.BJ`` suffix normalization.
+    """
+    if not isinstance(symbol, str) or not symbol.strip():
+        return symbol
+    s = symbol.strip()
+    upper = s.upper()
+    for suf in (".SS", ".SZ", ".BJ"):
+        if upper.endswith(suf):
+            base = s[: -len(suf)].strip()
+            return f"{base.upper()}{suf}"
+    if re.fullmatch(r"\d{6}", s):
+        if s.startswith("6"):
+            return f"{s}.SS"
+        if s.startswith(("0", "3")):
+            return f"{s}.SZ"
+        if s.startswith("8"):
+            return f"{s}.BJ"
+    return upper
+
+
 def safe_ticker_component(value: str, *, max_len: int = 32) -> str:
     """Validate ``value`` is safe to interpolate into a filesystem path.
 

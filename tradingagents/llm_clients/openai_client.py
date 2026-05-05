@@ -60,10 +60,11 @@ class DeepSeekChatOpenAI(NormalizedChatOpenAI):
        fails with HTTP 400. ``_create_chat_result`` captures the field on
        receive and ``_get_request_payload`` re-attaches it on send.
 
-    2. **deepseek-reasoner has no tool_choice.** Structured output via
-       function-calling is unavailable, so we raise NotImplementedError
-       and let the agent factories fall back to free-text generation
-       (see ``tradingagents/agents/utils/structured.py``).
+    2. **Structured output must not use function calling.** ``NormalizedChatOpenAI``
+       forces ``function_calling``, which sends ``tool_choice``; DeepSeek rejects
+       that for reasoning models (HTTP 400). We bind structured output with
+       ``json_mode`` instead (``response_format`` only), skipping the parent
+       class default.
     """
 
     def _get_request_payload(self, input_, *, stop=None, **kwargs):
@@ -95,13 +96,18 @@ class DeepSeekChatOpenAI(NormalizedChatOpenAI):
         return chat_result
 
     def with_structured_output(self, schema, *, method=None, **kwargs):
-        if self.model_name == "deepseek-reasoner":
-            raise NotImplementedError(
-                "deepseek-reasoner does not support tool_choice; structured "
-                "output is unavailable. Agent factories fall back to "
-                "free-text generation automatically."
-            )
-        return super().with_structured_output(schema, method=method, **kwargs)
+        """Use JSON mode so the API never sees ``tool_choice`` (function calling).
+
+        Parent ``NormalizedChatOpenAI`` maps ``method=None`` to
+        ``function_calling``, which DeepSeek rejects for ``deepseek-reasoner``
+        and related routes. Skip that parent and call ``ChatOpenAI`` directly
+        with ``json_mode``.
+        """
+        if method is None:
+            method = "json_mode"
+        return super(NormalizedChatOpenAI, self).with_structured_output(
+            schema, method=method, **kwargs
+        )
 
 # Kwargs forwarded from user config to ChatOpenAI
 _PASSTHROUGH_KWARGS = (
@@ -116,6 +122,8 @@ _PROVIDER_CONFIG = {
     "qwen": ("https://dashscope-intl.aliyuncs.com/compatible-mode/v1", "DASHSCOPE_API_KEY"),
     "glm": ("https://api.z.ai/api/paas/v4/", "ZHIPU_API_KEY"),
     "openrouter": ("https://openrouter.ai/api/v1", "OPENROUTER_API_KEY"),
+    # Xiaomi MiMo: OpenAI-compatible Chat Completions (see platform.xiaomimimo.com)
+    "mimo": ("https://api.xiaomimimo.com/v1", "MIMO_API_KEY"),
     "ollama": ("http://localhost:11434/v1", None),
 }
 

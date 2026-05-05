@@ -145,6 +145,7 @@ export DEEPSEEK_API_KEY=...        # DeepSeek
 export DASHSCOPE_API_KEY=...       # Qwen (Alibaba DashScope)
 export ZHIPU_API_KEY=...           # GLM (Zhipu)
 export OPENROUTER_API_KEY=...      # OpenRouter
+export MIMO_API_KEY=...            # Xiaomi MiMo (OpenAI-compatible)
 export ALPHA_VANTAGE_API_KEY=...   # Alpha Vantage
 ```
 
@@ -180,11 +181,27 @@ An interface will appear showing results as they load, letting you track the age
   <img src="assets/cli/cli_transaction.png" width="100%" style="display: inline-block; margin: 0 2%;">
 </p>
 
+### Web dashboard API (optional)
+
+For the Next.js + shadcn console in `../trading-web`, start the FastAPI backend **from the `TradingAgents` directory** using Python’s module runner (no `uvicorn` on `PATH` required):
+
+```bash
+python -m web_api
+```
+
+After `pip install .` or `pip install -e .`, you can also run:
+
+```bash
+tradingagents-web
+```
+
+On Windows you can double-click **`start-api.bat`** (same as `python -m web_api`). Defaults: `http://127.0.0.1:8000`, API docs at `/docs`. Override with `python -m web_api --host 0.0.0.0 --port 8000 --no-reload`.
+
 ## TradingAgents Package
 
 ### Implementation Details
 
-We built TradingAgents with LangGraph to ensure flexibility and modularity. The framework supports multiple LLM providers: OpenAI, Google, Anthropic, xAI, DeepSeek, Qwen (Alibaba DashScope), GLM (Zhipu), OpenRouter, Ollama for local models, and Azure OpenAI for enterprise.
+We built TradingAgents with LangGraph to ensure flexibility and modularity. The framework supports multiple LLM providers: OpenAI, Google, Anthropic, xAI, DeepSeek, Qwen (Alibaba DashScope), GLM (Zhipu), OpenRouter, Xiaomi MiMo (OpenAI-compatible), Ollama for local models, and Azure OpenAI for enterprise.
 
 ### Python Usage
 
@@ -208,7 +225,7 @@ from tradingagents.graph.trading_graph import TradingAgentsGraph
 from tradingagents.default_config import DEFAULT_CONFIG
 
 config = DEFAULT_CONFIG.copy()
-config["llm_provider"] = "openai"        # openai, google, anthropic, xai, deepseek, qwen, glm, openrouter, ollama, azure
+config["llm_provider"] = "openai"        # openai, google, anthropic, xai, deepseek, qwen, glm, openrouter, mimo, ollama, azure
 config["deep_think_llm"] = "gpt-5.4"     # Model for complex reasoning
 config["quick_think_llm"] = "gpt-5.4-mini" # Model for quick tasks
 config["max_debate_rounds"] = 2

@@ -8,7 +8,7 @@ from stockstats import wrap
 from typing import Annotated
 import os
 from .config import get_config
-from .utils import safe_ticker_component
+from .utils import normalize_symbol_for_yfinance, safe_ticker_component
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +52,7 @@ def load_ohlcv(symbol: str, curr_date: str) -> pd.DataFrame:
     subsequent calls the cache is reused. Rows after curr_date are
     filtered out so backtests never see future prices.
     """
+    symbol = normalize_symbol_for_yfinance(symbol)
     # Reject ticker values that would escape the cache directory when
     # interpolated into the cache filename (e.g. ``../../tmp/x``).
     safe_symbol = safe_ticker_component(symbol)
