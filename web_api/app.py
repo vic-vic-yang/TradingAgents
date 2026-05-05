@@ -642,7 +642,7 @@ def create_app() -> FastAPI:
     ).split(",")
     origin_regex = os.getenv(
         "TRADINGAGENTS_CORS_ORIGIN_REGEX",
-        r"^https://.*\.vercel\.app$",
+        r"^https://.*\.(vercel\.app|trycloudflare\.com)$",
     )
     app.add_middleware(
         CORSMiddleware,
