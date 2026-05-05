@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import logging
 import os
@@ -45,6 +46,10 @@ RUN_PARAMETERS_FILENAME = "run_parameters.json"
 _executor = ThreadPoolExecutor(max_workers=2)
 _jobs_lock = threading.Lock()
 _jobs: dict[str, dict[str, Any]] = {}
+
+
+def _checkpoint_backend_available() -> bool:
+    return importlib.util.find_spec("langgraph.checkpoint.sqlite") is not None
 
 
 def _utc_now_iso() -> str:
@@ -489,6 +494,14 @@ def _build_config(body: AnalysisRequest) -> dict[str, Any]:
     else:
         backend = str(body.backend_url).strip()
 
+    checkpoint_enabled = bool(body.checkpoint_enabled)
+    if checkpoint_enabled and not _checkpoint_backend_available():
+        logger.warning(
+            "Checkpoint requested but langgraph.checkpoint.sqlite is unavailable; "
+            "falling back to checkpoint_enabled=False."
+        )
+        checkpoint_enabled = False
+
     cfg = build_analysis_config(
         research_depth=int(research_depth),
         shallow_thinker=quick_m,
@@ -512,7 +525,7 @@ def _build_config(body: AnalysisRequest) -> dict[str, Any]:
             if body.anthropic_effort and str(body.anthropic_effort).strip()
             else None
         ),
-        checkpoint_enabled=body.checkpoint_enabled,
+        checkpoint_enabled=checkpoint_enabled,
     )
     return cfg
 
@@ -660,6 +673,7 @@ def create_app() -> FastAPI:
             "default_quick_think_llm": DEFAULT_CONFIG["quick_think_llm"],
             "default_output_language": DEFAULT_CONFIG.get("output_language", "English"),
             "default_checkpoint_enabled": bool(DEFAULT_CONFIG.get("checkpoint_enabled")),
+            "checkpoint_backend_available": _checkpoint_backend_available(),
             "data_vendors": dict(DEFAULT_CONFIG.get("data_vendors") or {}),
             "tool_vendors": dict(DEFAULT_CONFIG.get("tool_vendors") or {}),
             "llm_providers": _llm_providers_public(),
